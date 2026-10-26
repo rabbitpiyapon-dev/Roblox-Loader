@@ -1,0 +1,386 @@
+
+--========================================================
+-- GAMEHUB | ต้นฉบับ v1.0
+-- CLIENT UI + POSITION SAVER + ESP
+-- สถานะ: สคริปต์อิสระ ไม่เชื่อมโยงระบบอื่น
+-- รองรับ PC / MOBILE
+--========================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+if not Player then
+    warn("GameHub ต้องทำงานฝั่ง Client")
+    return
+end
+
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- ล้าง UI เก่าเมื่อรันซ้ำ
+local old = PlayerGui:FindFirstChild("GameHubUI")
+if old then old:Destroy() end
+
+local savedCFrame
+local espEnabled = false
+local espObjects = {}
+local godModeEnabled = false
+
+--================ UI ROOT ================================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "GameHubUI"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
+gui.Parent = PlayerGui
+
+local function corner(obj, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = obj
+end
+
+local function stroke(obj, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness or 1
+    s.Parent = obj
+end
+
+local function makeButton(parent, text, color, size)
+    local b = Instance.new("TextButton")
+    b.Size = size or UDim2.fromOffset(180, 40)
+    b.BackgroundColor3 = color
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.AutoButtonColor = true
+    b.Parent = parent
+    corner(b, 10)
+    return b
+end
+
+-- แถบด้านบน
+local top = makeButton(
+    gui,
+    "◆  GAMEHUB",
+    Color3.fromRGB(20, 190, 115),
+    UDim2.new(0, 210, 0, 30)
+)
+top.AnchorPoint = Vector2.new(0.5, 0)
+top.Position = UDim2.new(0.5, 0, 0, 5)
+top.TextSize = 13
+
+-- หน้าต่างหลัก
+local panel = Instance.new("Frame")
+panel.Name = "MainPanel"
+panel.Size = UDim2.new(0.82, 0, 0.68, 0)
+panel.Position = UDim2.new(0.5, 0, 0.52, 0)
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.BackgroundColor3 = Color3.fromRGB(15, 20, 29)
+panel.Visible = false
+panel.Parent = gui
+corner(panel, 16)
+stroke(panel, Color3.fromRGB(35, 210, 140), 2)
+
+local sizeLimit = Instance.new("UISizeConstraint")
+sizeLimit.MinSize = Vector2.new(270, 280)
+sizeLimit.MaxSize = Vector2.new(620, 520)
+sizeLimit.Parent = panel
+
+local header = Instance.new("TextLabel")
+header.Size = UDim2.new(1, -100, 0, 48)
+header.Position = UDim2.fromOffset(16, 0)
+header.BackgroundTransparency = 1
+header.Text = "GAMEHUB  /  CONTROL CENTER"
+header.TextColor3 = Color3.fromRGB(235, 245, 255)
+header.Font = Enum.Font.GothamBold
+header.TextSize = 16
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.Parent = panel
+
+local minimize = makeButton(
+    panel, "—", Color3.fromRGB(45, 55, 70),
+    UDim2.fromOffset(34, 32)
+)
+minimize.Position = UDim2.new(1, -82, 0, 8)
+
+local close = makeButton(
+    panel, "X", Color3.fromRGB(210, 55, 65),
+    UDim2.fromOffset(34, 32)
+)
+close.Position = UDim2.new(1, -42, 0, 8)
+
+local content = Instance.new("ScrollingFrame")
+content.Size = UDim2.new(1, -24, 1, -66)
+content.Position = UDim2.fromOffset(12, 54)
+content.BackgroundTransparency = 1
+content.BorderSizePixel = 0
+content.ScrollBarThickness = 4
+content.CanvasSize = UDim2.new(0, 0, 0, 340)
+content.Parent = panel
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 10)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = content
+
+local function section(text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -8, 0, 27)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(80, 230, 165)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = content
+    return label
+end
+
+--================ FLOATING POSITION BUTTONS ==============
+
+local saveButton = makeButton(
+    gui, "S", Color3.fromRGB(25, 205, 110),
+    UDim2.fromOffset(48, 48)
+)
+saveButton.AnchorPoint = Vector2.new(1, 0.5)
+saveButton.Position = UDim2.new(1, -14, 0.5, -30)
+saveButton.TextSize = 22
+corner(saveButton, 24)
+
+local teleportButton = makeButton(
+    gui, "T", Color3.fromRGB(225, 55, 65),
+    UDim2.fromOffset(48, 48)
+)
+teleportButton.AnchorPoint = Vector2.new(1, 0.5)
+teleportButton.Position = UDim2.new(1, -14, 0.5, 30)
+teleportButton.TextSize = 22
+corner(teleportButton, 24)
+
+local function getRoot()
+    local character = Player.Character
+    return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+local function savePosition()
+    local root = getRoot()
+    if root then
+        savedCFrame = root.CFrame
+        saveButton.Text = "✓"
+        task.delay(1, function()
+            if saveButton.Parent then saveButton.Text = "S" end
+        end)
+    end
+end
+
+local function teleportBack()
+    local root = getRoot()
+    if root and savedCFrame then
+        root.CFrame = savedCFrame + Vector3.new(0, 3, 0)
+    elseif not savedCFrame then
+        teleportButton.Text = "?"
+        task.delay(1, function()
+            if teleportButton.Parent then teleportButton.Text = "T" end
+        end)
+    end
+end
+
+saveButton.Activated:Connect(savePosition)
+teleportButton.Activated:Connect(teleportBack)
+
+--================ ESP =====================================
+
+local function clearESP()
+    for target, highlight in pairs(espObjects) do
+        if highlight then highlight:Destroy() end
+        espObjects[target] = nil
+    end
+end
+
+local function updateESP()
+    if not espEnabled then
+        clearESP()
+        return
+    end
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= Player and target.Character then
+            local character = target.Character
+            if not espObjects[character] then
+                local h = Instance.new("Highlight")
+                h.Name = "GameHubPlayerESP"
+                h.Adornee = character
+                h.FillColor = Color3.fromRGB(255, 45, 55)
+                h.OutlineColor = Color3.fromRGB(255, 120, 120)
+                h.FillTransparency = 0.55
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                h.Parent = gui
+                espObjects[character] = h
+            end
+        end
+    end
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model")
+            and (obj.Name == "Pumpkin Gold"
+            or obj.Name == "Pumpkin Silver")
+            and not espObjects[obj] then
+
+            local h = Instance.new("Highlight")
+            h.Name = "GameHubPumpkinESP"
+            h.Adornee = obj
+            h.FillColor = Color3.fromRGB(255, 220, 40)
+            h.OutlineColor = Color3.fromRGB(255, 245, 150)
+            h.FillTransparency = 0.4
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.Parent = gui
+            espObjects[obj] = h
+        end
+    end
+end
+
+--================ GOD MODE STATUS =========================
+-- UI สถานะเท่านั้น
+-- การป้องกันดาเมจจริงต้องตรวจสอบฝั่ง Server
+--==========================================================
+
+local function addToggle(title, description, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -8, 0, 68)
+    row.BackgroundColor3 = Color3.fromRGB(27, 35, 48)
+    row.Parent = content
+    corner(row, 10)
+
+    local name = Instance.new("TextLabel")
+    name.Size = UDim2.new(1, -100, 0, 27)
+    name.Position = UDim2.fromOffset(12, 5)
+    name.BackgroundTransparency = 1
+    name.Text = title
+    name.TextColor3 = Color3.new(1, 1, 1)
+    name.Font = Enum.Font.GothamBold
+    name.TextSize = 14
+    name.TextXAlignment = Enum.TextXAlignment.Left
+    name.Parent = row
+
+    local desc = Instance.new("TextLabel")
+    desc.Size = UDim2.new(1, -100, 0, 24)
+    desc.Position = UDim2.fromOffset(12, 32)
+    desc.BackgroundTransparency = 1
+    desc.Text = description
+    desc.TextColor3 = Color3.fromRGB(160, 175, 190)
+    desc.Font = Enum.Font.Gotham
+    desc.TextSize = 10
+    desc.TextWrapped = true
+    desc.TextXAlignment = Enum.TextXAlignment.Left
+    desc.Parent = row
+
+    local enabled = false
+    local toggle = makeButton(
+        row, "OFF", Color3.fromRGB(180, 60, 65),
+        UDim2.fromOffset(66, 32)
+    )
+    toggle.Position = UDim2.new(1, -76, 0.5, -16)
+
+    toggle.Activated:Connect(function()
+        enabled = not enabled
+        toggle.Text = enabled and "ON" or "OFF"
+        toggle.BackgroundColor3 = enabled
+            and Color3.fromRGB(25, 195, 110)
+            or Color3.fromRGB(180, 60, 65)
+        callback(enabled)
+    end)
+end
+
+section("POSITION")
+addToggle("Position Saver", "ใช้ปุ่ม S และ T ด้านขวา", function(enabled)
+    saveButton.Visible = true
+    teleportButton.Visible = true
+end)
+
+section("VISUALS")
+addToggle("Player & Pumpkin ESP", "ผู้เล่นสีแดง / Pumpkin สีเหลือง", function(enabled)
+    espEnabled = enabled
+    if not enabled then clearESP() end
+end)
+
+section("SURVIVAL")
+addToggle("God Mode", "ต้องเชื่อมระบบป้องกันดาเมจฝั่ง Server", function(enabled)
+    godModeEnabled = enabled
+    warn("God Mode UI:", enabled, "- ต้องมีระบบ Server รองรับ")
+end)
+
+--================ WINDOW CONTROLS ========================
+
+top.Activated:Connect(function()
+    panel.Visible = not panel.Visible
+end)
+
+minimize.Activated:Connect(function()
+    panel.Visible = false
+end)
+
+close.Activated:Connect(function()
+    panel.Visible = false
+end)
+
+-- ลากหน้าต่างด้วยเมาส์หรือทัช
+local dragging = false
+local dragStart
+local startPosition
+local dragInput
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPosition = panel.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input == dragInput
+        or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        panel.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- อัปเดต ESP เป็นช่วง ๆ
+task.spawn(function()
+    while gui.Parent do
+        if espEnabled then
+            updateESP()
+        end
+        task.wait(0.75)
+    end
+end)
+
+-- ล้างทรัพยากรเมื่อ UI ถูกลบ
+gui.Destroying:Connect(function()
+    clearESP()
+end)
+
+print("GameHub v1.0 loaded")
