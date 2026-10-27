@@ -1,0 +1,267 @@
+
+--==================================================
+-- CAMERA TOWER DEFENSE HUB | ต้นฉบับ v1.0
+-- ประเภท: LocalScript
+-- ตำแหน่ง: StarterPlayer > StarterPlayerScripts
+-- สถานะ: สคริปต์อิสระ ไม่เชื่อมโยงระบบอื่น
+-- รองรับ: PC / Mobile
+--==================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local old = playerGui:FindFirstChild("CameraTDHub")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CameraTDHub"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props) do obj[k] = v end
+    obj.Parent = parent
+    return obj
+end
+
+local function corner(obj, radius)
+    make("UICorner", {
+        CornerRadius = UDim.new(0, radius)
+    }, obj)
+end
+
+local function stroke(obj, color, thickness)
+    make("UIStroke", {
+        Color = color,
+        Thickness = thickness
+    }, obj)
+end
+
+-- ปุ่มวงกลมมุมขวาบน
+local openButton = make("TextButton", {
+    Name = "OpenButton",
+    Size = UDim2.fromOffset(48, 48),
+    Position = UDim2.new(1, -65, 0.15, 0),
+    BackgroundColor3 = Color3.fromRGB(32, 210, 100),
+    Text = "CT",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 18,
+    Font = Enum.Font.GothamBold,
+    AutoButtonColor = true
+}, gui)
+corner(openButton, 50)
+stroke(openButton, Color3.fromRGB(120, 255, 165), 2)
+
+-- หน้าต่างหลัก
+local panel = make("Frame", {
+    Name = "MainPanel",
+    Size = UDim2.fromOffset(310, 300),
+    Position = UDim2.new(0.5, -155, 0.5, -150),
+    BackgroundColor3 = Color3.fromRGB(15, 18, 17),
+    Visible = false
+}, gui)
+corner(panel, 16)
+stroke(panel, Color3.fromRGB(45, 210, 105), 1.5)
+
+make("TextLabel", {
+    Size = UDim2.new(1, -55, 0, 48),
+    Position = UDim2.fromOffset(16, 4),
+    BackgroundTransparency = 1,
+    Text = "CAMERA TD HUB",
+    TextColor3 = Color3.fromRGB(60, 240, 130),
+    TextSize = 19,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, panel)
+
+local close = make("TextButton", {
+    Size = UDim2.fromOffset(34, 34),
+    Position = UDim2.new(1, -43, 0, 8),
+    BackgroundColor3 = Color3.fromRGB(50, 55, 52),
+    Text = "×",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 24,
+    Font = Enum.Font.GothamBold
+}, panel)
+corner(close, 9)
+
+make("Frame", {
+    Size = UDim2.new(1, -28, 0, 1),
+    Position = UDim2.fromOffset(14, 50),
+    BackgroundColor3 = Color3.fromRGB(48, 65, 54),
+    BorderSizePixel = 0
+}, panel)
+
+local featureNames = {
+    {"ESP", "Highlight ผู้เล่นและ NPC"},
+    {"FLY", "ลอยตัวและควบคุมทิศทาง"},
+    {"AUTO MOVE", "เดินและกระโดดอัตโนมัติ"}
+}
+
+local states = {}
+local setFeature = {}
+
+for i, info in ipairs(featureNames) do
+    local y = 65 + (i - 1) * 72
+
+    local row = make("Frame", {
+        Size = UDim2.new(1, -24, 0, 62),
+        Position = UDim2.fromOffset(12, y),
+        BackgroundColor3 = Color3.fromRGB(27, 33, 29)
+    }, panel)
+    corner(row, 10)
+
+    make("TextLabel", {
+        Size = UDim2.new(1, -100, 0, 26),
+        Position = UDim2.fromOffset(12, 5),
+        BackgroundTransparency = 1,
+        Text = info[1],
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 15,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, row)
+
+    make("TextLabel", {
+        Size = UDim2.new(1, -100, 0, 20),
+        Position = UDim2.fromOffset(12, 31),
+        BackgroundTransparency = 1,
+        Text = info[2],
+        TextColor3 = Color3.fromRGB(155, 170, 159),
+        TextSize = 10,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, row)
+
+    local toggle = make("TextButton", {
+        Size = UDim2.fromOffset(76, 32),
+        Position = UDim2.new(1, -86, 0.5, -16),
+        BackgroundColor3 = Color3.fromRGB(65, 70, 67),
+        Text = "OFF",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 13,
+        Font = Enum.Font.GothamBold
+    }, row)
+    corner(toggle, 9)
+
+    states[info[1]] = false
+
+    toggle.Activated:Connect(function()
+        states[info[1]] = not states[info[1]]
+        local enabled = states[info[1]]
+
+        toggle.Text = enabled and "ON" or "OFF"
+        toggle.BackgroundColor3 = enabled
+            and Color3.fromRGB(25, 175, 80)
+            or Color3.fromRGB(65, 70, 67)
+
+        if setFeature[info[1]] then
+            setFeature[info[1]](enabled)
+        end
+    end)
+end
+
+openButton.Activated:Connect(function()
+    panel.Visible = not panel.Visible
+end)
+
+close.Activated:Connect(function()
+    panel.Visible = false
+end)
+
+-- ESP สำหรับผู้เล่นที่มองเห็นได้ในแมพของคุณ
+local highlights = {}
+
+local function addPlayerESP(target)
+    if target == player or highlights[target] then return end
+
+    local function attach(character)
+        if not states.ESP or not character or not character.Parent then
+            return
+        end
+
+        if highlights[target] then
+            highlights[target]:Destroy()
+        end
+
+        local h = Instance.new("Highlight")
+        h.Name = "CameraTD_PlayerESP"
+        h.Adornee = character
+        h.FillColor = Color3.fromRGB(30, 255, 90)
+        h.OutlineColor = Color3.fromRGB(130, 255, 160)
+        h.FillTransparency = 0.65
+        h.DepthMode = Enum.HighlightDepthMode.Occluded
+        h.Parent = character
+        highlights[target] = h
+    end
+
+    if target.Character then
+        attach(target.Character)
+    end
+
+    target.CharacterAdded:Connect(function(character)
+        task.wait(0.5)
+        attach(character)
+    end)
+end
+
+setFeature.ESP = function(enabled)
+    if enabled then
+        for _, target in ipairs(Players:GetPlayers()) do
+            addPlayerESP(target)
+        end
+    else
+        for target, h in pairs(highlights) do
+            if h then h:Destroy() end
+            highlights[target] = nil
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(target)
+    if states.ESP then addPlayerESP(target) end
+end)
+
+Players.PlayerRemoving:Connect(function(target)
+    if highlights[target] then
+        highlights[target]:Destroy()
+        highlights[target] = nil
+    end
+end)
+
+-- สถานะเริ่มต้นของระบบเคลื่อนที่
+local flyConnection
+local autoConnection
+
+setFeature.FLY = function(enabled)
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+
+    if not enabled then return end
+
+    -- เตรียมส่วนควบคุม Fly สำหรับแมพที่คุณเป็นผู้พัฒนา
+    -- ต้องกำหนดการควบคุมและการตรวจสอบตัวละครเพิ่มเติม
+    warn("FLY เปิดแล้ว: ต้องเชื่อมระบบเคลื่อนที่ของแมพ")
+end
+
+setFeature["AUTO MOVE"] = function(enabled)
+    if autoConnection then
+        autoConnection:Disconnect()
+        autoConnection = nil
+    end
+
+    if not enabled then return end
+
+    -- เตรียมส่วน Auto Move สำหรับแมพที่คุณเป็นผู้พัฒนา
+    -- ต้องกำหนดรูปแบบการเดินและเงื่อนไขการหยุดเพิ่มเติม
+    warn("AUTO MOVE เปิดแล้ว: ต้องกำหนดรูปแบบการเคลื่อนที่")
+end
+
+print("Camera TD Hub v1.0 loaded")
