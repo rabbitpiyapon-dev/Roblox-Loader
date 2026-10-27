@@ -1,0 +1,589 @@
+
+--========================================================
+-- CAMERA TOWER DEFENSE HUB | ต้นฉบับ v1.1
+-- ประเภท: LocalScript
+-- ตำแหน่ง: StarterPlayer > StarterPlayerScripts
+-- สถานะ: สคริปต์อิสระ ไม่เชื่อมโยงระบบอื่น
+-- รองรับ: PC / Mobile
+--========================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local old = playerGui:FindFirstChild("CameraTDHub")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CameraTDHub"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props) do obj[k] = v end
+    obj.Parent = parent
+    return obj
+end
+
+local function corner(obj, radius)
+    make("UICorner", {
+        CornerRadius = UDim.new(0, radius)
+    }, obj)
+end
+
+local function stroke(obj, color, thickness)
+    make("UIStroke", {
+        Color = color,
+        Thickness = thickness
+    }, obj)
+end
+
+--========================================================
+-- UI
+--========================================================
+
+local openButton = make("TextButton", {
+    Name = "OpenButton",
+    Size = UDim2.fromOffset(48, 48),
+    Position = UDim2.new(1, -65, 0.15, 0),
+    BackgroundColor3 = Color3.fromRGB(32, 210, 100),
+    Text = "CT",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 18,
+    Font = Enum.Font.GothamBold
+}, gui)
+corner(openButton, 50)
+stroke(openButton, Color3.fromRGB(120, 255, 165), 2)
+
+local panel = make("Frame", {
+    Name = "MainPanel",
+    Size = UDim2.fromOffset(310, 300),
+    Position = UDim2.new(0.5, -155, 0.5, -150),
+    BackgroundColor3 = Color3.fromRGB(15, 18, 17),
+    Visible = false
+}, gui)
+corner(panel, 16)
+stroke(panel, Color3.fromRGB(45, 210, 105), 1.5)
+
+make("TextLabel", {
+    Size = UDim2.new(1, -55, 0, 48),
+    Position = UDim2.fromOffset(16, 4),
+    BackgroundTransparency = 1,
+    Text = "CAMERA TD HUB",
+    TextColor3 = Color3.fromRGB(60, 240, 130),
+    TextSize = 19,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Left
+}, panel)
+
+local close = make("TextButton", {
+    Size = UDim2.fromOffset(34, 34),
+    Position = UDim2.new(1, -43, 0, 8),
+    BackgroundColor3 = Color3.fromRGB(50, 55, 52),
+    Text = "×",
+    TextColor3 = Color3.new(1, 1, 1),
+    TextSize = 24,
+    Font = Enum.Font.GothamBold
+}, panel)
+corner(close, 9)
+
+make("Frame", {
+    Size = UDim2.new(1, -28, 0, 1),
+    Position = UDim2.fromOffset(14, 50),
+    BackgroundColor3 = Color3.fromRGB(48, 65, 54),
+    BorderSizePixel = 0
+}, panel)
+
+local featureNames = {
+    {"ESP", "ผู้เล่นและ Toilet 7 ชนิด"},
+    {"FLY", "ลอยตัวและควบคุมทิศทาง"},
+    {"AUTO MOVE", "เดินและกระโดดอัตโนมัติ"}
+}
+
+local states = {}
+local setFeature = {}
+
+for i, info in ipairs(featureNames) do
+    local y = 65 + (i - 1) * 72
+
+    local row = make("Frame", {
+        Size = UDim2.new(1, -24, 0, 62),
+        Position = UDim2.fromOffset(12, y),
+        BackgroundColor3 = Color3.fromRGB(27, 33, 29)
+    }, panel)
+    corner(row, 10)
+
+    make("TextLabel", {
+        Size = UDim2.new(1, -100, 0, 26),
+        Position = UDim2.fromOffset(12, 5),
+        BackgroundTransparency = 1,
+        Text = info[1],
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 15,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, row)
+
+    make("TextLabel", {
+        Size = UDim2.new(1, -100, 0, 20),
+        Position = UDim2.fromOffset(12, 31),
+        BackgroundTransparency = 1,
+        Text = info[2],
+        TextColor3 = Color3.fromRGB(155, 170, 159),
+        TextSize = 10,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, row)
+
+    local toggle = make("TextButton", {
+        Size = UDim2.fromOffset(76, 32),
+        Position = UDim2.new(1, -86, 0.5, -16),
+        BackgroundColor3 = Color3.fromRGB(65, 70, 67),
+        Text = "OFF",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 13,
+        Font = Enum.Font.GothamBold
+    }, row)
+    corner(toggle, 9)
+
+    states[info[1]] = false
+
+    toggle.Activated:Connect(function()
+        states[info[1]] = not states[info[1]]
+        local enabled = states[info[1]]
+
+        toggle.Text = enabled and "ON" or "OFF"
+        toggle.BackgroundColor3 = enabled
+            and Color3.fromRGB(25, 175, 80)
+            or Color3.fromRGB(65, 70, 67)
+
+        if setFeature[info[1]] then
+            setFeature[info[1]](enabled)
+        end
+    end)
+end
+
+openButton.Activated:Connect(function()
+    panel.Visible = not panel.Visible
+end)
+
+close.Activated:Connect(function()
+    panel.Visible = false
+end)
+
+--========================================================
+-- ESP CONFIGURATION
+--========================================================
+
+local ESP_NAMES = {
+    ["Boss Toilet 3.0"] = true,
+    ["Boss Toilet 2.0"] = true,
+    ["camo Toilet"] = true,
+    ["Vacuum Toilet"] = true,
+    ["DJ Toilet"] = true,
+    ["boss Toilet"] = true,
+    ["Fake Boss Toilet"] = true
+}
+
+local playerHighlights = {}
+local npcData = {}
+local espAccumulator = 0
+
+local function getRoot(character)
+    if not character then return nil end
+
+    return character:FindFirstChild("HumanoidRootPart")
+        or character.PrimaryPart
+end
+
+local function clearNPC(model)
+    local data = npcData[model]
+    if not data then return end
+
+    if data.highlight then data.highlight:Destroy() end
+    if data.billboard then data.billboard:Destroy() end
+
+    npcData[model] = nil
+end
+
+local function addPlayerESP(target)
+    if not states.ESP or target == player then return end
+
+    local character = target.Character
+    if not character then return end
+
+    local existing = playerHighlights[target]
+
+    if existing and existing.Parent == character then
+        return
+    end
+
+    if existing then existing:Destroy() end
+
+    local h = Instance.new("Highlight")
+    h.Name = "CTD_PlayerESP"
+    h.Adornee = character
+    h.FillColor = Color3.fromRGB(30, 255, 90)
+    h.OutlineColor = Color3.fromRGB(130, 255, 160)
+    h.FillTransparency = 0.5
+    h.OutlineTransparency = 0
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = character
+
+    playerHighlights[target] = h
+end
+
+local function addNPC(model)
+    if not states.ESP then return end
+    if not model:IsA("Model") then return end
+    if not ESP_NAMES[model.Name] then return end
+    if npcData[model] then return end
+
+    local humanoid = model:FindFirstChildWhichIsA("Humanoid", true)
+    local head = model:FindFirstChild("Head", true)
+    local root = getRoot(model)
+    local adornee = head or root
+
+    if not adornee or not adornee:IsA("BasePart") then
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "CTD_ToiletESP"
+    highlight.Adornee = model
+    highlight.FillColor = Color3.fromRGB(255, 35, 45)
+    highlight.OutlineColor = Color3.fromRGB(255, 110, 110)
+    highlight.FillTransparency = 0.65
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = model
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "CTD_ToiletInfo"
+    billboard.Adornee = adornee
+    billboard.Size = UDim2.fromOffset(210, 54)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 1500
+    billboard.Parent = playerGui
+
+    local label = make("TextLabel", {
+        Name = "Info",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Color3.fromRGB(20, 8, 10),
+        BackgroundTransparency = 0.2,
+        BorderSizePixel = 0,
+        TextColor3 = Color3.fromRGB(255, 70, 70),
+        TextStrokeTransparency = 0.3,
+        Font = Enum.Font.GothamBold,
+        TextSize = 15,
+        TextWrapped = true,
+        Text = model.Name
+    }, billboard)
+    corner(label, 7)
+
+    npcData[model] = {
+        highlight = highlight,
+        billboard = billboard,
+        label = label,
+        humanoid = humanoid
+    }
+end
+
+local function scanESP()
+    if not states.ESP then return end
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        addPlayerESP(target)
+    end
+
+    -- ค้นหาโมเดลเฉพาะชื่อที่กำหนด
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and ESP_NAMES[obj.Name] then
+            addNPC(obj)
+        end
+    end
+
+    for model in pairs(npcData) do
+        if not model:IsDescendantOf(Workspace) then
+            clearNPC(model)
+        end
+    end
+end
+
+local function clearAllESP()
+    for _, h in pairs(playerHighlights) do
+        if h then h:Destroy() end
+    end
+    table.clear(playerHighlights)
+
+    for model in pairs(npcData) do
+        clearNPC(model)
+    end
+end
+
+setFeature.ESP = function(enabled)
+    if not enabled then
+        clearAllESP()
+        return
+    end
+
+    scanESP()
+end
+
+--========================================================
+-- FLY
+--========================================================
+
+local flyConnection
+local flyVelocity
+local flyAttachment
+local flyCharacter
+local savedAutoRotate
+local flySpeed = 45
+
+local function stopFly()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+
+    if flyVelocity then
+        flyVelocity:Destroy()
+        flyVelocity = nil
+    end
+
+    if flyAttachment then
+        flyAttachment:Destroy()
+        flyAttachment = nil
+    end
+
+    if flyCharacter then
+        local humanoid = flyCharacter:FindFirstChildOfClass("Humanoid")
+        if humanoid and savedAutoRotate ~= nil then
+            humanoid.AutoRotate = savedAutoRotate
+        end
+    end
+
+    flyCharacter = nil
+    savedAutoRotate = nil
+end
+
+setFeature.FLY = function(enabled)
+    stopFly()
+    if not enabled then return end
+
+    local character = player.Character
+    local root = getRoot(character)
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+    if not root or not humanoid then
+        states.FLY = false
+        return
+    end
+
+    flyCharacter = character
+    savedAutoRotate = humanoid.AutoRotate
+    humanoid.AutoRotate = false
+
+    flyAttachment = Instance.new("Attachment")
+    flyAttachment.Name = "CTD_FlyAttachment"
+    flyAttachment.Parent = root
+
+    flyVelocity = Instance.new("LinearVelocity")
+    flyVelocity.Name = "CTD_FlyVelocity"
+    flyVelocity.Attachment0 = flyAttachment
+    flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
+    flyVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+    flyVelocity.VectorVelocity = Vector3.zero
+    flyVelocity.MaxForce = 100000
+    flyVelocity.Parent = root
+
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not states.FLY or not root.Parent then
+            stopFly()
+            return
+        end
+
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+
+        local move = humanoid.MoveDirection
+        local vertical = 0
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            vertical += 1
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            vertical -= 1
+        end
+
+        -- ใช้ปุ่มเดินปกติบน PC และมือถือ
+        flyVelocity.VectorVelocity =
+            move * flySpeed + Vector3.new(0, vertical * flySpeed, 0)
+
+        local look = camera.CFrame.LookVector
+        local flatLook = Vector3.new(look.X, 0, look.Z)
+
+        if flatLook.Magnitude > 0.01 and move.Magnitude > 0.05 then
+            root.CFrame = CFrame.lookAt(
+                root.Position,
+                root.Position + flatLook.Unit
+            )
+        end
+    end)
+end
+
+--========================================================
+-- AUTO MOVE
+--========================================================
+
+local autoConnection
+local autoTime = 0
+
+setFeature["AUTO MOVE"] = function(enabled)
+    if autoConnection then
+        autoConnection:Disconnect()
+        autoConnection = nil
+    end
+
+    if not enabled then
+        local character = player.Character
+        local humanoid = character
+            and character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            humanoid:Move(Vector3.zero, false)
+        end
+        return
+    end
+
+    autoTime = 0
+
+    autoConnection = RunService.Heartbeat:Connect(function(dt)
+        if not states["AUTO MOVE"] then return end
+
+        local character = player.Character
+        local humanoid = character
+            and character:FindFirstChildOfClass("Humanoid")
+        local root = getRoot(character)
+
+        if not humanoid or not root then return end
+
+        autoTime += dt
+
+        local phase = math.floor(autoTime / 1.5) % 4
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+
+        local forward = Vector3.new(
+            camera.CFrame.LookVector.X, 0,
+            camera.CFrame.LookVector.Z
+        )
+
+        local right = Vector3.new(
+            camera.CFrame.RightVector.X, 0,
+            camera.CFrame.RightVector.Z
+        )
+
+        if forward.Magnitude < 0.01 then return end
+
+        forward = forward.Unit
+        right = right.Unit
+
+        if phase == 0 then
+            humanoid:Move(right, false)
+        elseif phase == 1 then
+            humanoid:Move(-right, false)
+        elseif phase == 2 then
+            humanoid:Move(-forward, false)
+        else
+            humanoid:Move(forward, false)
+            if humanoid.FloorMaterial ~= Enum.Material.Air then
+                humanoid.Jump = true
+            end
+        end
+    end)
+end
+
+--========================================================
+-- ESP UPDATE LOOP: สแกนทุก 1.5 วินาที
+--========================================================
+
+RunService.Heartbeat:Connect(function(dt)
+    if not states.ESP then return end
+
+    espAccumulator += dt
+
+    for model, data in pairs(npcData) do
+        if not model:IsDescendantOf(Workspace) then
+            clearNPC(model)
+        else
+            local npcRoot = getRoot(model)
+            local myRoot = getRoot(player.Character)
+
+            if npcRoot and myRoot then
+                local distance =
+                    (npcRoot.Position - myRoot.Position).Magnitude
+
+                local healthText = "HP: N/A"
+                local humanoid = data.humanoid
+
+                if humanoid and humanoid.Parent then
+                    healthText = string.format(
+                        "HP: %d / %d",
+                        math.floor(math.max(0, humanoid.Health) + 0.5),
+                        math.floor(humanoid.MaxHealth + 0.5)
+                    )
+                end
+
+                data.label.Text = string.format(
+                    "%s\n%s | %.0f studs",
+                    model.Name,
+                    healthText,
+                    distance
+                )
+            end
+        end
+    end
+
+    if espAccumulator >= 1.5 then
+        espAccumulator = 0
+        scanESP()
+    end
+end)
+
+Players.PlayerAdded:Connect(function(target)
+    target.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if states.ESP then
+            addPlayerESP(target)
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(target)
+    local h = playerHighlights[target]
+    if h then h:Destroy() end
+    playerHighlights[target] = nil
+end)
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+
+    if states.ESP then
+        scanESP()
+    end
+
+    if states.FLY then
+        setFeature.FLY(true)
+    end
+end)
+
+print("Camera Tower Defense Hub v1.1 loaded")
