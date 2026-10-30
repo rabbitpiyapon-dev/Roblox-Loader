@@ -1,687 +1,637 @@
 
---========================================================
--- CAR CRUSHERS 2 | NEON CONTROL HUB
--- ต้นฉบับ v1.0
--- ประเภท: LocalScript
--- ตำแหน่ง: StarterPlayer > StarterPlayerScripts
--- รองรับ: PC / Mobile
--- สถานะ: สคริปต์อิสระสำหรับเกมของคุณเอง
---========================================================
+--==================================================
+-- ฆาตกร | ต้นฉบับ v1.3
+-- ONE LOCAL SCRIPT
+-- สำหรับแมป Roblox ของเจ้าของ
+--==================================================
 
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
+local CollectionService = game:GetService("CollectionService")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
---========================================================
--- CONFIG
---========================================================
-
-local CONFIG = {
-    PlayerESP = true,
-    VehicleESP = true,
-
-    -- ความเร็วแนวราบเป้าหมาย (studs/second)
-    Speed = 1000,
-
-    -- ความสูงที่ยกรถ
-    FarmHeight = 10,
-
-    -- ความเร็วหมุนเป็นองศาต่อวินาที
-    FarmRotation = 999,
-
-    RainbowSpeed = 1.5,
+local Config = {
+    ESP = false,
+    Aim = false,
+    Flight = false,
+    Speed = 55,
+    MaxSpeed = 180,
+    GunBusy = false,
+    AimRange = 500
 }
 
---========================================================
--- STATE
---========================================================
+local Highlights = {}
+local ItemHighlights = {}
+local FlightAttachment
+local FlightVelocity
+local FlightButtonUpdate
 
-local running = true
-local minimized = false
-local espEnabled = false
-local farmEnabled = false
-local speedEnabled = false
-
-local playerHighlights = {}
-local vehicleBoxes = {}
-local currentVehicle = nil
-local farmAttachment = nil
-local farmPosition = nil
-local farmRotation = nil
-local farmTarget = nil
-local farmOrigin = nil
-
-local connections = {}
-local featureConnections = {}
-local rainbowConnections = {}
-
-local function track(connection, list)
-    table.insert(list or connections, connection)
-    return connection
-end
-
-local function make(className, props, parent)
-    local object = Instance.new(className)
-    for key, value in pairs(props or {}) do
-        object[key] = value
-    end
-    object.Parent = parent
-    return object
-end
-
---========================================================
+--==================================================
 -- GUI
---========================================================
+--==================================================
 
-local gui = make("ScreenGui", {
-    Name = "NeonControlHub",
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    DisplayOrder = 999,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-}, playerGui)
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "ฆาตกร"
+Gui.ResetOnSpawn = false
+Gui.Parent = Player:WaitForChild("PlayerGui")
 
-local main = make("Frame", {
-    Name = "Main",
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Position = UDim2.fromScale(0.5, 0.5),
-    Size = UDim2.new(0, 390, 0, 310),
-    BackgroundColor3 = Color3.fromRGB(8, 9, 14),
-    BorderSizePixel = 0,
-}, gui)
+local Ninja = Instance.new("TextButton")
+Ninja.Name = "Ninja"
+Ninja.Size = UDim2.fromOffset(54,54)
+Ninja.Position = UDim2.new(1,-70,0,15)
+Ninja.BackgroundColor3 = Color3.new(1,1,1)
+Ninja.Text = "🥷"
+Ninja.TextSize = 27
+Ninja.Parent = Gui
 
-make("UICorner", {
-    CornerRadius = UDim.new(0, 16),
-}, main)
+Instance.new("UICorner",Ninja).CornerRadius =
+    UDim.new(1,0)
 
-local mainStroke = make("UIStroke", {
-    Thickness = 2,
-    Color = Color3.fromRGB(160, 70, 255),
-}, main)
+local Panel = Instance.new("Frame")
+Panel.Size = UDim2.fromOffset(300,410)
+Panel.Position = UDim2.new(.5,-150,.5,-205)
+Panel.BackgroundColor3 = Color3.fromRGB(17,17,22)
+Panel.Visible = false
+Panel.Parent = Gui
 
-local mainGradient = make("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 240, 255)),
-        ColorSequenceKeypoint.new(0.35, Color3.fromRGB(130, 50, 255)),
-        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 40, 140)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 240, 255)),
-    }),
-}, mainStroke)
+Instance.new("UICorner",Panel).CornerRadius =
+    UDim.new(0,15)
 
-track(RunService.RenderStepped:Connect(function(dt)
-    if not running then return end
-    mainGradient.Rotation = (mainGradient.Rotation + dt * 90 * CONFIG.RainbowSpeed) % 360
-end), rainbowConnections)
+local Border = Instance.new("UIStroke")
+Border.Color = Color3.fromRGB(255,45,45)
+Border.Thickness = 2
+Border.Parent = Panel
 
-local header = make("Frame", {
-    Position = UDim2.fromOffset(10, 10),
-    Size = UDim2.new(1, -20, 0, 55),
-    BackgroundTransparency = 1,
-}, main)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,55)
+Title.BackgroundTransparency = 1
+Title.Text = "🔪 ฆาตกร"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextSize = 23
+Title.Font = Enum.Font.GothamBold
+Title.Parent = Panel
 
-make("TextLabel", {
-    Position = UDim2.fromOffset(5, 0),
-    Size = UDim2.new(1, -100, 0, 30),
-    BackgroundTransparency = 1,
-    Text = "CAR CRUSHERS 2",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBold,
-    TextSize = 20,
-    TextXAlignment = Enum.TextXAlignment.Left,
-}, header)
+local Holder = Instance.new("ScrollingFrame")
+Holder.Position = UDim2.fromOffset(10,60)
+Holder.Size = UDim2.new(1,-20,1,-70)
+Holder.BackgroundTransparency = 1
+Holder.BorderSizePixel = 0
+Holder.ScrollBarThickness = 3
+Holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Holder.CanvasSize = UDim2.new()
+Holder.Parent = Panel
 
-make("TextLabel", {
-    Position = UDim2.fromOffset(6, 29),
-    Size = UDim2.new(1, -100, 0, 18),
-    BackgroundTransparency = 1,
-    Text = "NEON CONTROL HUB  •  v1.0",
-    TextColor3 = Color3.fromRGB(170, 120, 255),
-    Font = Enum.Font.Gotham,
-    TextSize = 10,
-    TextXAlignment = Enum.TextXAlignment.Left,
-}, header)
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0,8)
+Layout.Parent = Holder
 
--- ปุ่มย่อ
-local minimizeButton = make("TextButton", {
-    AnchorPoint = Vector2.new(1, 0),
-    Position = UDim2.new(1, -40, 0, 5),
-    Size = UDim2.fromOffset(32, 30),
-    BackgroundColor3 = Color3.fromRGB(25, 26, 34),
-    Text = "—",
-    TextColor3 = Color3.new(1, 1, 1),
-    TextSize = 18,
-    Font = Enum.Font.GothamBold,
-    AutoButtonColor = true,
-}, header)
-make("UICorner", {CornerRadius = UDim.new(0, 8)}, minimizeButton)
+local function Button(name, callback, toggle)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-5,0,48)
+    b.BackgroundColor3 = Color3.fromRGB(38,38,48)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextSize = 14
+    b.Font = Enum.Font.GothamBold
+    b.Text = name .. (toggle and " [OFF]" or "")
+    b.Parent = Holder
 
--- ปุ่มปิด
-local closeButton = make("TextButton", {
-    AnchorPoint = Vector2.new(1, 0),
-    Position = UDim2.new(1, -3, 0, 5),
-    Size = UDim2.fromOffset(32, 30),
-    BackgroundColor3 = Color3.fromRGB(35, 14, 20),
-    Text = "X",
-    TextColor3 = Color3.fromRGB(255, 60, 80),
-    TextSize = 17,
-    Font = Enum.Font.GothamBold,
-    AutoButtonColor = true,
-}, header)
-make("UICorner", {CornerRadius = UDim.new(0, 8)}, closeButton)
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,9)
 
-local divider = make("Frame", {
-    Position = UDim2.fromOffset(14, 73),
-    Size = UDim2.new(1, -28, 0, 1),
-    BackgroundColor3 = Color3.fromRGB(65, 43, 94),
-    BorderSizePixel = 0,
-}, main)
+    local state = false
 
-local statusLabel = make("TextLabel", {
-    Position = UDim2.fromOffset(16, 82),
-    Size = UDim2.new(1, -32, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "SYSTEM READY",
-    TextColor3 = Color3.fromRGB(90, 255, 170),
-    Font = Enum.Font.GothamMedium,
-    TextSize = 11,
-    TextXAlignment = Enum.TextXAlignment.Left,
-}, main)
+    local function SetState(value)
+        state = value
+        b.Text = name .. (state and " [ON]" or " [OFF]")
+        b.BackgroundColor3 = state
+            and Color3.fromRGB(30,130,75)
+            or Color3.fromRGB(38,38,48)
+    end
 
-local list = make("Frame", {
-    Position = UDim2.fromOffset(14, 110),
-    Size = UDim2.new(1, -28, 0, 158),
-    BackgroundTransparency = 1,
-}, main)
-
-make("UIListLayout", {
-    Padding = UDim.new(0, 8),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-}, list)
-
---========================================================
--- FLOATING BUTTON
---========================================================
-
-local floating = make("TextButton", {
-    Name = "FloatingButton",
-    AnchorPoint = Vector2.new(0, 0.5),
-    Position = UDim2.new(0, 18, 0.5, 0),
-    Size = UDim2.fromOffset(58, 58),
-    BackgroundColor3 = Color3.fromRGB(5, 6, 10),
-    Text = "CC2",
-    TextColor3 = Color3.new(1, 1, 1),
-    Font = Enum.Font.GothamBlack,
-    TextSize = 15,
-    AutoButtonColor = false,
-    ZIndex = 5,
-}, gui)
-
-make("UICorner", {
-    CornerRadius = UDim.new(1, 0),
-}, floating)
-
-local floatingStroke = make("UIStroke", {
-    Thickness = 2.5,
-    Color = Color3.fromRGB(0, 230, 255),
-}, floating)
-
-local floatingGradient = make("UIGradient", {
-    Color = mainGradient.Color,
-}, floatingStroke)
-
-track(RunService.RenderStepped:Connect(function(dt)
-    if not running then return end
-    floatingGradient.Rotation = (floatingGradient.Rotation + dt * 100) % 360
-end), rainbowConnections)
-
---========================================================
--- FEATURE ROWS
---========================================================
-
-local function makeFeature(name, description, order, callback)
-    local row = make("Frame", {
-        Name = name,
-        Size = UDim2.new(1, 0, 0, 44),
-        BackgroundColor3 = Color3.fromRGB(18, 19, 27),
-        BorderSizePixel = 0,
-        LayoutOrder = order,
-    }, list)
-
-    make("UICorner", {
-        CornerRadius = UDim.new(0, 9),
-    }, row)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 4),
-        Size = UDim2.new(1, -85, 0, 20),
-        BackgroundTransparency = 1,
-        Text = name,
-        TextColor3 = Color3.new(1, 1, 1),
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 23),
-        Size = UDim2.new(1, -85, 0, 15),
-        BackgroundTransparency = 1,
-        Text = description,
-        TextColor3 = Color3.fromRGB(145, 147, 160),
-        Font = Enum.Font.Gotham,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-
-    local toggle = make("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.fromOffset(49, 25),
-        BackgroundColor3 = Color3.fromRGB(43, 44, 53),
-        Text = "OFF",
-        TextColor3 = Color3.fromRGB(180, 180, 190),
-        Font = Enum.Font.GothamBold,
-        TextSize = 10,
-        AutoButtonColor = true,
-    }, row)
-
-    make("UICorner", {
-        CornerRadius = UDim.new(1, 0),
-    }, toggle)
-
-    local enabled = false
-
-    toggle.Activated:Connect(function()
-        if not running then return end
-        enabled = not enabled
-
-        toggle.Text = enabled and "ON" or "OFF"
-        toggle.BackgroundColor3 = enabled
-            and Color3.fromRGB(91, 38, 160)
-            or Color3.fromRGB(43, 44, 53)
-        toggle.TextColor3 = enabled
-            and Color3.new(1, 1, 1)
-            or Color3.fromRGB(180, 180, 190)
-
-        callback(enabled)
+    b.Activated:Connect(function()
+        if toggle then
+            SetState(not state)
+            callback(state)
+        else
+            callback()
+        end
     end)
 
-    return toggle
+    return b, SetState
 end
 
---========================================================
--- VEHICLE DETECTION
---========================================================
+local function TogglePanel()
+    Panel.Visible = not Panel.Visible
+end
 
-local function getVehicle()
-    local character = player.Character
+Ninja.Activated:Connect(TogglePanel)
+
+--==================================================
+-- ROLE COLORS
+--==================================================
+
+local function GetRole(player)
+    return string.lower(tostring(
+        player:GetAttribute("Role")
+        or (player.Team and player.Team.Name)
+        or "innocent"
+    ))
+end
+
+local function GetColor(role)
+    if role:find("murder") then
+        return Color3.fromRGB(255,40,40)
+    elseif role:find("sheriff") then
+        return Color3.fromRGB(40,140,255)
+    end
+
+    return Color3.fromRGB(40,255,90)
+end
+
+--==================================================
+-- ESP
+--==================================================
+
+local function ClearESP()
+    for _,v in pairs(Highlights) do
+        if v then v:Destroy() end
+    end
+
+    for _,v in pairs(ItemHighlights) do
+        if v then v:Destroy() end
+    end
+
+    table.clear(Highlights)
+    table.clear(ItemHighlights)
+end
+
+local function AddHighlight(container, storage, color, transparency)
+    local h = storage[container]
+
+    if not h or h.Parent ~= container then
+        if h then h:Destroy() end
+
+        h = Instance.new("Highlight")
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = container
+        storage[container] = h
+    end
+
+    h.FillColor = color
+    h.OutlineColor = color
+    h.FillTransparency = transparency
+    h.OutlineTransparency = 0
+end
+
+local function UpdateESP()
+    if not Config.ESP then return end
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character then
+            AddHighlight(
+                p.Character,
+                Highlights,
+                GetColor(GetRole(p)),
+                0.65
+            )
+        end
+    end
+
+    local hue = (os.clock()%4)/4
+
+    local tags = {
+        "DroppedSheriffGun",
+        "Coin",
+        "Candy"
+    }
+
+    for _,tag in ipairs(tags) do
+        for _,item in ipairs(CollectionService:GetTagged(tag)) do
+            if item:IsDescendantOf(workspace) then
+                local color
+
+                if tag == "DroppedSheriffGun" then
+                    color = Color3.fromRGB(255,220,20)
+                elseif tag == "Candy" then
+                    color = Color3.fromRGB(185,60,255)
+                else
+                    color = Color3.fromHSV(hue,1,1)
+                end
+
+                AddHighlight(item,ItemHighlights,color,0.4)
+            end
+        end
+    end
+end
+
+Button("ESP | ผู้เล่นและไอเทม",function(v)
+    Config.ESP = v
+    if not v then ClearESP() end
+end,true)
+
+--==================================================
+-- GUN FINDER
+-- ค้นหาปืนที่ Sheriff ทำตก
+--==================================================
+
+local GunLabel = Instance.new("TextLabel")
+GunLabel.Size = UDim2.new(1,-5,0,38)
+GunLabel.BackgroundTransparency = 1
+GunLabel.TextColor3 = Color3.new(1,1,1)
+GunLabel.TextSize = 12
+GunLabel.Text = "Gun: ยังไม่ได้ค้นหา"
+GunLabel.Parent = Holder
+
+local function GetPart(item)
+    if item:IsA("BasePart") then
+        return item
+    end
+
+    return item:FindFirstChildWhichIsA("BasePart",true)
+end
+
+local function FindNearestGun()
+    local character = Player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not root then return nil end
+
+    local nearest
+    local distance = math.huge
+
+    for _,gun in ipairs(
+        CollectionService:GetTagged("DroppedSheriffGun")
+    ) do
+        local part = GetPart(gun)
+
+        if part and part:IsDescendantOf(workspace) then
+            local d = (root.Position-part.Position).Magnitude
+
+            if d < distance then
+                nearest = gun
+                distance = d
+            end
+        end
+    end
+
+    return nearest,distance
+end
+
+local function FindPrompt(item)
+    if item:IsA("ProximityPrompt") then
+        return item
+    end
+
+    return item:FindFirstChildWhichIsA(
+        "ProximityPrompt",true
+    )
+end
+
+local function CollectGun()
+    if Config.GunBusy then return end
+
+    local character = Player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        GunLabel.Text = "Gun: ไม่พบตัวละคร"
+        return
+    end
+
+    local gun,distance = FindNearestGun()
+
+    if not gun then
+        GunLabel.Text = "Gun: ไม่พบปืนที่ตก"
+        return
+    end
+
+    local part = GetPart(gun)
+
+    if not part then
+        GunLabel.Text = "Gun: ไม่พบตำแหน่งปืน"
+        return
+    end
+
+    Config.GunBusy = true
+    GunLabel.Text = "Gun: กำลังไปยังปืน..."
+
+    local oldPosition = root.CFrame
+
+    local success,err = pcall(function()
+        character:PivotTo(
+            CFrame.new(part.Position + Vector3.new(0,3,0))
+        )
+
+        task.wait(0.5)
+
+        local prompt = FindPrompt(gun)
+
+        if prompt and prompt.Enabled then
+            prompt:InputHoldBegin()
+            task.wait(math.max(prompt.HoldDuration,0.2))
+            prompt:InputHoldEnd()
+            GunLabel.Text = "Gun: ส่งคำสั่งเก็บปืนแล้ว"
+        else
+            GunLabel.Text = "Gun: ไม่พบ ProximityPrompt"
+        end
+
+        task.wait(0.5)
+
+        if Player.Character then
+            Player.Character:PivotTo(oldPosition)
+        end
+    end)
+
+    if not success then
+        GunLabel.Text = "Gun: เกิดข้อผิดพลาด"
+        warn("Gun Finder:",err)
+
+        if Player.Character then
+            Player.Character:PivotTo(oldPosition)
+        end
+    end
+
+    Config.GunBusy = false
+end
+
+Button("🔫 ค้นหาและเก็บปืนที่ตก",CollectGun)
+
+--==================================================
+-- AIM
+-- เล็งเป้าหมาย Murder และใช้อาวุธที่ถืออยู่
+--==================================================
+
+local AimButton = Instance.new("TextButton")
+AimButton.Size = UDim2.fromOffset(55,55)
+AimButton.Position = UDim2.new(1,-75,1,-190)
+AimButton.BackgroundColor3 = Color3.fromRGB(30,30,35)
+AimButton.Text = "⊙"
+AimButton.TextSize = 34
+AimButton.TextColor3 = Color3.new(1,1,1)
+AimButton.Visible = false
+AimButton.Parent = Gui
+
+Instance.new("UICorner",AimButton).CornerRadius =
+    UDim.new(1,0)
+
+local AimStroke = Instance.new("UIStroke")
+AimStroke.Color = Color3.fromRGB(255,45,45)
+AimStroke.Thickness = 2
+AimStroke.Parent = AimButton
+
+local function FindMurderTarget()
+    local myCharacter = Player.Character
+    local myRoot = myCharacter
+        and myCharacter:FindFirstChild("HumanoidRootPart")
+
+    if not myRoot then return nil end
+
+    local nearest
+    local nearestDistance = Config.AimRange
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and GetRole(p):find("murder") then
+            local character = p.Character
+            local root = character
+                and character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character
+                and character:FindFirstChildOfClass("Humanoid")
+
+            if root and humanoid and humanoid.Health > 0 then
+                local distance =
+                    (myRoot.Position-root.Position).Magnitude
+
+                if distance < nearestDistance then
+                    nearest = p
+                    nearestDistance = distance
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+local function GetEquippedTool()
+    local character = Player.Character
     if not character then return nil end
 
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return nil end
-
-    local seat = humanoid.SeatPart
-    if not seat then return nil end
-
-    local model = seat:FindFirstAncestorOfClass("Model")
-    while model and model ~= Workspace do
-        if model:FindFirstChildWhichIsA("VehicleSeat", true) then
-            return model
+    for _,obj in ipairs(character:GetChildren()) do
+        if obj:IsA("Tool") then
+            return obj
         end
-        model = model.Parent and model.Parent:FindFirstAncestorOfClass("Model")
     end
 
     return nil
 end
 
-local function getVehicleRoot(model)
-    if not model then return nil end
+AimButton.Activated:Connect(function()
+    if not Config.Aim then return end
 
-    if model.PrimaryPart then
-        return model.PrimaryPart
-    end
+    local target = FindMurderTarget()
 
-    local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
-    if seat then return seat end
-
-    return model:FindFirstChildWhichIsA("BasePart", true)
-end
-
---========================================================
--- PLAYER ESP
--- เขียว = ตัวเอง / น้ำเงิน = ผู้เล่นอื่น
---========================================================
-
-local function removePlayerESP(target)
-    local highlight = playerHighlights[target]
-    if highlight then
-        highlight:Destroy()
-        playerHighlights[target] = nil
-    end
-end
-
-local function addPlayerESP(target)
-    if not espEnabled or not target.Character then return end
-
-    removePlayerESP(target)
-
-    local highlight = make("Highlight", {
-        Name = "NeonPlayerESP",
-        Adornee = target.Character,
-        FillColor = target == player
-            and Color3.fromRGB(50, 255, 110)
-            or Color3.fromRGB(45, 135, 255),
-        OutlineColor = target == player
-            and Color3.fromRGB(140, 255, 170)
-            or Color3.fromRGB(110, 190, 255),
-        FillTransparency = 0.72,
-        OutlineTransparency = 0,
-        DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
-    }, gui)
-
-    playerHighlights[target] = highlight
-end
-
-local function refreshPlayerESP()
-    for _, target in ipairs(Players:GetPlayers()) do
-        addPlayerESP(target)
-    end
-end
-
-local function stopPlayerESP()
-    for target in pairs(playerHighlights) do
-        removePlayerESP(target)
-    end
-end
-
---========================================================
--- OWN VEHICLE ESP
--- เน้นขอบชิ้นส่วนรถที่ผู้เล่นกำลังขับเท่านั้น
---========================================================
-
-local function clearVehicleESP()
-    for part, selection in pairs(vehicleBoxes) do
-        if selection then selection:Destroy() end
-        vehicleBoxes[part] = nil
-    end
-    currentVehicle = nil
-end
-
-local function refreshVehicleESP()
-    if not espEnabled then return end
-
-    local model = getVehicle()
-    if model ~= currentVehicle then
-        clearVehicleESP()
-        currentVehicle = model
-    end
-
-    if not model then return end
-
-    for _, part in ipairs(model:GetDescendants()) do
-        if part:IsA("BasePart") and not vehicleBoxes[part] then
-            local box = make("SelectionBox", {
-                Name = "NeonVehicleESP",
-                Adornee = part,
-                Color3 = Color3.fromRGB(0, 255, 210),
-                LineThickness = 0.035,
-                SurfaceTransparency = 1,
-                AlwaysOnTop = true,
-            }, gui)
-
-            vehicleBoxes[part] = box
-        end
-    end
-
-    for part, box in pairs(vehicleBoxes) do
-        if not part.Parent or not part:IsDescendantOf(model) then
-            box:Destroy()
-            vehicleBoxes[part] = nil
-        end
-    end
-end
-
---========================================================
--- FARM MODE
--- ยกรถ 10 studs และหมุนรถ
---========================================================
-
-local function stopFarm()
-    if farmPosition then farmPosition:Destroy() end
-    if farmRotation then farmRotation:Destroy() end
-    if farmAttachment then farmAttachment:Destroy() end
-
-    farmPosition = nil
-    farmRotation = nil
-    farmAttachment = nil
-    farmTarget = nil
-    farmOrigin = nil
-end
-
-local function startFarm()
-    stopFarm()
-
-    local model = getVehicle()
-    local root = getVehicleRoot(model)
-
-    if not model or not root then
-        statusLabel.Text = "FARM: SIT IN YOUR VEHICLE FIRST"
+    if not target then
+        AimButton.Text = "?"
+        task.delay(1,function()
+            AimButton.Text = "⊙"
+        end)
         return
     end
 
-    farmTarget = model
-    farmOrigin = root.Position
+    local character = target.Character
+    local root = character
+        and character:FindFirstChild("HumanoidRootPart")
 
-    farmAttachment = make("Attachment", {
-        Name = "NeonFarmAttachment",
-    }, root)
+    if not root then return end
 
-    farmPosition = make("AlignPosition", {
-        Name = "NeonFarmLift",
-        Mode = Enum.PositionAlignmentMode.OneAttachment,
-        Attachment0 = farmAttachment,
-        Position = farmOrigin + Vector3.new(0, CONFIG.FarmHeight, 0),
-        MaxForce = 100000000,
-        MaxVelocity = 100,
-        Responsiveness = 15,
-        ApplyAtCenterOfMass = true,
-    }, root)
-
-    farmRotation = make("AngularVelocity", {
-        Name = "NeonFarmSpin",
-        Attachment0 = farmAttachment,
-        RelativeTo = Enum.ActuatorRelativeTo.World,
-        AngularVelocity = Vector3.new(
-            0,
-            math.rad(CONFIG.FarmRotation),
-            0
-        ),
-        MaxTorque = 100000000,
-    }, root)
-
-    statusLabel.Text = "FARM: ACTIVE"
-end
-
---========================================================
--- SPEED MODE
--- ทำงานเฉพาะรถที่กำลังขับอยู่
---========================================================
-
-local function applySpeed()
-    local model = getVehicle()
-    local root = getVehicleRoot(model)
-
-    if not root then
-        statusLabel.Text = "SPEED: SIT IN YOUR VEHICLE FIRST"
-        return
-    end
-
-    local forward = root.CFrame.LookVector
-    local velocity = root.AssemblyLinearVelocity
-
-    -- เปลี่ยนเฉพาะความเร็วแนวราบ รักษาความเร็วแนวดิ่งไว้
-    root.AssemblyLinearVelocity = Vector3.new(
-        forward.X * CONFIG.Speed,
-        velocity.Y,
-        forward.Z * CONFIG.Speed
+    Camera.CFrame = CFrame.lookAt(
+        Camera.CFrame.Position,
+        root.Position
     )
+
+    local tool = GetEquippedTool()
+
+    if tool then
+        tool:Activate()
+    end
+end)
+
+Button("🎯 AIM BUTTON",function(v)
+    Config.Aim = v
+    AimButton.Visible = v
+end,true)
+
+--==================================================
+-- FLIGHT
+--==================================================
+
+local function StopFlight()
+    Config.Flight = false
+
+    if FlightVelocity then
+        FlightVelocity:Destroy()
+        FlightVelocity = nil
+    end
+
+    if FlightAttachment then
+        FlightAttachment:Destroy()
+        FlightAttachment = nil
+    end
+
+    local character = Player.Character
+    local humanoid = character
+        and character:FindFirstChildOfClass("Humanoid")
+
+    if humanoid then
+        humanoid.PlatformStand = false
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+
+    if FlightButtonUpdate then
+        FlightButtonUpdate(false)
+    end
 end
 
---========================================================
--- ENABLE / DISABLE FEATURES
---========================================================
+local function StartFlight()
+    local character = Player.Character
+    local root = character
+        and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character
+        and character:FindFirstChildOfClass("Humanoid")
 
-makeFeature("ESP", "Players + Your Vehicle", 1, function(enabled)
-    espEnabled = enabled
+    if not root or not humanoid then return end
 
-    if enabled then
-        refreshPlayerESP()
-        refreshVehicleESP()
-        statusLabel.Text = "ESP: ACTIVE"
-    else
-        stopPlayerESP()
-        clearVehicleESP()
-        statusLabel.Text = "ESP: OFF"
+    Config.Flight = true
+
+    FlightAttachment = Instance.new("Attachment")
+    FlightAttachment.Parent = root
+
+    FlightVelocity = Instance.new("LinearVelocity")
+    FlightVelocity.Attachment0 = FlightAttachment
+    FlightVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
+    FlightVelocity.MaxForce = 100000
+    FlightVelocity.VectorVelocity = Vector3.new(0,3,0)
+    FlightVelocity.Parent = root
+
+    humanoid.PlatformStand = true
+
+    if FlightButtonUpdate then
+        FlightButtonUpdate(true)
     end
-end)
-
-makeFeature("FARM", "Lift + Vehicle Spin", 2, function(enabled)
-    farmEnabled = enabled
-
-    if enabled then
-        startFarm()
-    else
-        stopFarm()
-        statusLabel.Text = "FARM: OFF"
-    end
-end)
-
-makeFeature("SPEED", "Boost While Driving", 3, function(enabled)
-    speedEnabled = enabled
-    statusLabel.Text = enabled and "SPEED: ACTIVE" or "SPEED: OFF"
-end)
-
---========================================================
--- BUTTONS
---========================================================
-
-floating.Activated:Connect(function()
-    if not running then return end
-
-    main.Visible = not main.Visible
-    minimized = false
-end)
-
-minimizeButton.Activated:Connect(function()
-    minimized = not minimized
-
-    list.Visible = not minimized
-    divider.Visible = not minimized
-    statusLabel.Visible = not minimized
-
-    main.Size = minimized
-        and UDim2.new(0, 390, 0, 75)
-        or UDim2.new(0, 390, 0, 310)
-end)
-
-local function shutdown()
-    if not running then return end
-
-    running = false
-    espEnabled = false
-    farmEnabled = false
-    speedEnabled = false
-
-    stopPlayerESP()
-    clearVehicleESP()
-    stopFarm()
-
-    for _, connection in ipairs(connections) do
-        connection:Disconnect()
-    end
-
-    for _, connection in ipairs(featureConnections) do
-        connection:Disconnect()
-    end
-
-    for _, connection in ipairs(rainbowConnections) do
-        connection:Disconnect()
-    end
-
-    gui:Destroy()
 end
 
-closeButton.Activated:Connect(shutdown)
+local function ToggleFlight()
+    if Config.Flight then
+        StopFlight()
+    else
+        StartFlight()
+    end
+end
 
---========================================================
--- UPDATE LOOP
---========================================================
+local _,setFlightButton = Button("✈ FLIGHT",ToggleFlight,true)
+FlightButtonUpdate = setFlightButton
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1,-5,0,28)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.TextColor3 = Color3.new(1,1,1)
+SpeedLabel.Text = "Speed: 55"
+SpeedLabel.Parent = Holder
+
+local function ChangeSpeed(amount)
+    Config.Speed = math.clamp(
+        Config.Speed+amount,15,Config.MaxSpeed
+    )
+
+    SpeedLabel.Text = "Speed: "..Config.Speed
+end
+
+Button("➕ เพิ่มความเร็ว",function()
+    ChangeSpeed(10)
+end)
+
+Button("➖ ลดความเร็ว",function()
+    ChangeSpeed(-10)
+end)
+
+--==================================================
+-- MAIN UPDATE
+--==================================================
 
 local espTimer = 0
 
-track(RunService.Heartbeat:Connect(function(dt)
-    if not running then return end
+RunService.RenderStepped:Connect(function(dt)
+    espTimer += dt
 
-    if speedEnabled then
-        applySpeed()
+    if espTimer >= 0.2 then
+        espTimer = 0
+        UpdateESP()
     end
 
-    if farmEnabled then
-        local model = getVehicle()
-        local root = getVehicleRoot(model)
+    if Config.Flight and FlightVelocity then
+        local character = Player.Character
+        local humanoid = character
+            and character:FindFirstChildOfClass("Humanoid")
 
-        if not model or model ~= farmTarget or not root then
-            stopFarm()
-            farmEnabled = false
-            statusLabel.Text = "FARM: VEHICLE UNAVAILABLE"
+        if not humanoid then
+            StopFlight()
+            return
         end
+
+        FlightVelocity.VectorVelocity =
+            humanoid.MoveDirection*Config.Speed
+            + Vector3.new(0,3,0)
     end
+end)
 
-    if espEnabled then
-        espTimer += dt
+--==================================================
+-- INPUT PC / CONSOLE
+--==================================================
 
-        if espTimer >= 0.5 then
-            espTimer = 0
-            refreshVehicleESP()
-        end
+UIS.InputBegan:Connect(function(input,processed)
+    if processed then return end
+
+    local key = input.KeyCode
+
+    if key == Enum.KeyCode.T
+        or key == Enum.KeyCode.ButtonR1 then
+
+        TogglePanel()
+
+    elseif key == Enum.KeyCode.F2
+        or key == Enum.KeyCode.ButtonL2 then
+
+        ToggleFlight()
+
+    elseif key == Enum.KeyCode.F1
+        or key == Enum.KeyCode.ButtonR2 then
+
+        ChangeSpeed(10)
+
+    elseif key == Enum.KeyCode.F3
+        or key == Enum.KeyCode.ButtonL1 then
+
+        ChangeSpeed(-10)
     end
-end))
+end)
 
-track(Players.PlayerAdded:Connect(function(target)
-    if espEnabled then
-        target.CharacterAdded:Connect(function()
-            task.wait(0.5)
-            if running and espEnabled then
-                addPlayerESP(target)
-            end
-        end)
+--==================================================
+-- RESPAWN CLEANUP
+--==================================================
+
+Player.CharacterAdded:Connect(function()
+    StopFlight()
+    ClearESP()
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    if Highlights[p] then
+        Highlights[p]:Destroy()
+        Highlights[p] = nil
     end
-end))
+end)
 
-track(Players.PlayerRemoving:Connect(function(target)
-    removePlayerESP(target)
-end))
-
--- ปรับขนาดสำหรับหน้าจอมือถือ
-local function updateLayout()
-    local camera = Workspace.CurrentCamera
-    if not camera then return end
-
-    local viewport = camera.ViewportSize
-
-    if viewport.X < 450 then
-        main.Size = UDim2.new(1, -30, 0, minimized and 75 or 310)
-    else
-        main.Size = UDim2.new(0, 390, 0, minimized and 75 or 310)
-    end
-end
-
-track(Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(updateLayout))
-updateLayout()
-
-print("[NEON CONTROL HUB] ต้นฉบับ v1.0 loaded")
+print("ฆาตกร | ต้นฉบับ v1.3 โหลดสำเร็จ")
