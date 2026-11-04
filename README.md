@@ -1,637 +1,570 @@
 
---==================================================
--- ฆาตกร | ต้นฉบับ v1.3
--- ONE LOCAL SCRIPT
--- สำหรับแมป Roblox ของเจ้าของ
---==================================================
+--========================================================
+-- OGHub | EMERGENCY HAMBURG
+-- ต้นฉบับ v1.0
+-- PC + MOBILE
+--========================================================
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
 local Player = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local Config = {
-    ESP = false,
-    Aim = false,
-    Flight = false,
-    Speed = 55,
-    MaxSpeed = 180,
-    GunBusy = false,
-    AimRange = 500
+local PURPLE = Color3.fromRGB(155, 75, 255)
+local DARK = Color3.fromRGB(15, 12, 23)
+local BLUE = Color3.fromRGB(25, 115, 255)
+local WHITE = Color3.fromRGB(255,255,255)
+
+local old = PlayerGui:FindFirstChild("OGHub")
+if old then old:Destroy() end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "OGHub"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = PlayerGui
+
+local function corner(obj, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,radius)
+    c.Parent = obj
+end
+
+local function stroke(obj,color,thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness or 1.5
+    s.Parent = obj
+end
+
+local function label(parent,text,size,color)
+    local t = Instance.new("TextLabel")
+    t.BackgroundTransparency = 1
+    t.Text = text
+    t.TextSize = size
+    t.TextColor3 = color
+    t.Font = Enum.Font.GothamBold
+    t.Parent = parent
+    return t
+end
+
+--========================================================
+-- INTRO
+--========================================================
+
+local intro = Instance.new("Frame")
+intro.Size = UDim2.fromScale(1,1)
+intro.BackgroundColor3 = Color3.new(0,0,0)
+intro.BackgroundTransparency = 0.28
+intro.Parent = gui
+
+local introText = label(intro,"OGHub",34,PURPLE)
+introText.Size = UDim2.new(1,0,0,65)
+introText.Position = UDim2.fromScale(0,0.43)
+
+local introStroke = Instance.new("UIStroke")
+introStroke.Color = Color3.fromRGB(220,190,255)
+introStroke.Thickness = 0.7
+introStroke.Parent = introText
+
+task.delay(3,function()
+    TweenService:Create(intro,TweenInfo.new(0.5),{
+        BackgroundTransparency = 1
+    }):Play()
+    TweenService:Create(introText,TweenInfo.new(0.5),{
+        TextTransparency = 1
+    }):Play()
+    task.wait(0.55)
+    intro:Destroy()
+end)
+
+--========================================================
+-- OPEN BUTTON
+--========================================================
+
+local open = Instance.new("TextButton")
+open.Name = "OpenButton"
+open.Size = UDim2.fromOffset(49,49)
+open.Position = UDim2.new(1,-65,0,25)
+open.BackgroundColor3 = BLUE
+open.Text = "OG"
+open.TextColor3 = WHITE
+open.TextSize = 15
+open.Font = Enum.Font.GothamBlack
+open.Parent = gui
+corner(open,100)
+stroke(open,Color3.fromRGB(130,190,255),2)
+
+--========================================================
+-- MAIN WINDOW
+--========================================================
+
+local main = Instance.new("Frame")
+main.Name = "MainWindow"
+main.Size = UDim2.new(0.85,0,0,390)
+main.Position = UDim2.fromScale(0.5,0.5)
+main.AnchorPoint = Vector2.new(0.5,0.5)
+main.BackgroundColor3 = DARK
+main.Visible = false
+main.Parent = gui
+corner(main,14)
+stroke(main,PURPLE,2)
+
+local sizeConstraint = Instance.new("UISizeConstraint")
+sizeConstraint.MaxSize = Vector2.new(430,500)
+sizeConstraint.MinSize = Vector2.new(280,300)
+sizeConstraint.Parent = main
+
+-- Header
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,58)
+header.BackgroundColor3 = Color3.fromRGB(42,24,62)
+header.Parent = main
+corner(header,12)
+
+local title = label(header,"EMERGENCY HAMBURG",17,WHITE)
+title.Position = UDim2.new(0,15,0,0)
+title.Size = UDim2.new(1,-65,1,0)
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(35,35)
+close.Position = UDim2.new(1,-43,0,11)
+close.BackgroundColor3 = Color3.fromRGB(100,35,55)
+close.Text = "X"
+close.TextColor3 = WHITE
+close.Font = Enum.Font.GothamBold
+close.TextSize = 17
+close.Parent = header
+corner(close,9)
+
+-- Content
+
+local content = Instance.new("ScrollingFrame")
+content.Size = UDim2.new(1,-24,1,-75)
+content.Position = UDim2.new(0,12,0,67)
+content.BackgroundTransparency = 1
+content.BorderSizePixel = 0
+content.ScrollBarThickness = 3
+content.ScrollBarImageColor3 = PURPLE
+content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+content.CanvasSize = UDim2.new()
+content.Parent = main
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,9)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = content
+
+local function makeButton(text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-5,0,43)
+    b.BackgroundColor3 = Color3.fromRGB(39,29,53)
+    b.Text = text
+    b.TextColor3 = WHITE
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.Parent = content
+    corner(b,9)
+    stroke(b,Color3.fromRGB(80,55,110),1)
+    return b
+end
+
+local function section(text)
+    local t = label(content,text,13,PURPLE)
+    t.Size = UDim2.new(1,0,0,25)
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    return t
+end
+
+--========================================================
+-- ESP
+--========================================================
+
+section("01  |  PLAYER & VEHICLE ESP")
+
+local espEnabled = false
+local vehicleEnabled = false
+
+local espButton = makeButton("PLAYER ESP : OFF")
+local vehicleButton = makeButton("VEHICLE ESP : OFF")
+
+local teamColors = {
+    police = Color3.fromRGB(65,160,255),
+    firefighter = Color3.fromRGB(255,65,65),
+    fire = Color3.fromRGB(255,65,65),
+    medic = Color3.fromRGB(255,65,65),
+    criminal = Color3.fromRGB(255,220,40)
 }
 
-local Highlights = {}
-local ItemHighlights = {}
-local FlightAttachment
-local FlightVelocity
-local FlightButtonUpdate
+local function getTeamInfo(plr)
+    local name = plr.Team and plr.Team.Name:lower() or ""
 
---==================================================
--- GUI
---==================================================
-
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "ฆาตกร"
-Gui.ResetOnSpawn = false
-Gui.Parent = Player:WaitForChild("PlayerGui")
-
-local Ninja = Instance.new("TextButton")
-Ninja.Name = "Ninja"
-Ninja.Size = UDim2.fromOffset(54,54)
-Ninja.Position = UDim2.new(1,-70,0,15)
-Ninja.BackgroundColor3 = Color3.new(1,1,1)
-Ninja.Text = "🥷"
-Ninja.TextSize = 27
-Ninja.Parent = Gui
-
-Instance.new("UICorner",Ninja).CornerRadius =
-    UDim.new(1,0)
-
-local Panel = Instance.new("Frame")
-Panel.Size = UDim2.fromOffset(300,410)
-Panel.Position = UDim2.new(.5,-150,.5,-205)
-Panel.BackgroundColor3 = Color3.fromRGB(17,17,22)
-Panel.Visible = false
-Panel.Parent = Gui
-
-Instance.new("UICorner",Panel).CornerRadius =
-    UDim.new(0,15)
-
-local Border = Instance.new("UIStroke")
-Border.Color = Color3.fromRGB(255,45,45)
-Border.Thickness = 2
-Border.Parent = Panel
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,55)
-Title.BackgroundTransparency = 1
-Title.Text = "🔪 ฆาตกร"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.TextSize = 23
-Title.Font = Enum.Font.GothamBold
-Title.Parent = Panel
-
-local Holder = Instance.new("ScrollingFrame")
-Holder.Position = UDim2.fromOffset(10,60)
-Holder.Size = UDim2.new(1,-20,1,-70)
-Holder.BackgroundTransparency = 1
-Holder.BorderSizePixel = 0
-Holder.ScrollBarThickness = 3
-Holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Holder.CanvasSize = UDim2.new()
-Holder.Parent = Panel
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0,8)
-Layout.Parent = Holder
-
-local function Button(name, callback, toggle)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1,-5,0,48)
-    b.BackgroundColor3 = Color3.fromRGB(38,38,48)
-    b.TextColor3 = Color3.new(1,1,1)
-    b.TextSize = 14
-    b.Font = Enum.Font.GothamBold
-    b.Text = name .. (toggle and " [OFF]" or "")
-    b.Parent = Holder
-
-    Instance.new("UICorner",b).CornerRadius =
-        UDim.new(0,9)
-
-    local state = false
-
-    local function SetState(value)
-        state = value
-        b.Text = name .. (state and " [ON]" or " [OFF]")
-        b.BackgroundColor3 = state
-            and Color3.fromRGB(30,130,75)
-            or Color3.fromRGB(38,38,48)
+    if name:find("police") then
+        return "POLICE",teamColors.police
+    elseif name:find("fire") then
+        return "FIREFIGHTER",teamColors.firefighter
+    elseif name:find("medic") or name:find("doctor") then
+        return "MEDIC",teamColors.medic
+    elseif name:find("criminal") or name:find("robber") then
+        return "CRIMINAL",teamColors.criminal
     end
 
-    b.Activated:Connect(function()
-        if toggle then
-            SetState(not state)
-            callback(state)
-        else
-            callback()
-        end
-    end)
-
-    return b, SetState
+    return "PLAYER",Color3.fromRGB(210,210,210)
 end
 
-local function TogglePanel()
-    Panel.Visible = not Panel.Visible
-end
+local playerObjects = {}
 
-Ninja.Activated:Connect(TogglePanel)
-
---==================================================
--- ROLE COLORS
---==================================================
-
-local function GetRole(player)
-    return string.lower(tostring(
-        player:GetAttribute("Role")
-        or (player.Team and player.Team.Name)
-        or "innocent"
-    ))
-end
-
-local function GetColor(role)
-    if role:find("murder") then
-        return Color3.fromRGB(255,40,40)
-    elseif role:find("sheriff") then
-        return Color3.fromRGB(40,140,255)
+local function clearPlayer(plr)
+    local data = playerObjects[plr]
+    if data then
+        if data.highlight then data.highlight:Destroy() end
+        if data.billboard then data.billboard:Destroy() end
+        playerObjects[plr] = nil
     end
-
-    return Color3.fromRGB(40,255,90)
 end
 
---==================================================
--- ESP
---==================================================
+local function createPlayerESP(plr)
+    if plr == Player then return end
 
-local function ClearESP()
-    for _,v in pairs(Highlights) do
-        if v then v:Destroy() end
-    end
+    local char = plr.Character
+    if not char then return end
 
-    for _,v in pairs(ItemHighlights) do
-        if v then v:Destroy() end
-    end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
 
-    table.clear(Highlights)
-    table.clear(ItemHighlights)
-end
-
-local function AddHighlight(container, storage, color, transparency)
-    local h = storage[container]
-
-    if not h or h.Parent ~= container then
-        if h then h:Destroy() end
-
-        h = Instance.new("Highlight")
+    if not playerObjects[plr] then
+        local h = Instance.new("Highlight")
+        h.Name = "OGHubHighlight"
         h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        h.Parent = container
-        storage[container] = h
+        h.Parent = char
+
+        local bill = Instance.new("BillboardGui")
+        bill.Name = "OGHubPlayerInfo"
+        bill.Size = UDim2.fromOffset(180,48)
+        bill.StudsOffset = Vector3.new(0,3,0)
+        bill.AlwaysOnTop = true
+        bill.Adornee = head
+        bill.Parent = gui
+
+        local txt = label(bill,"",12,WHITE)
+        txt.Size = UDim2.fromScale(1,1)
+        txt.TextStrokeTransparency = 0.2
+
+        playerObjects[plr] = {
+            highlight = h,
+            billboard = bill,
+            text = txt
+        }
     end
 
-    h.FillColor = color
-    h.OutlineColor = color
-    h.FillTransparency = transparency
-    h.OutlineTransparency = 0
+    local data = playerObjects[plr]
+    local team,color = getTeamInfo(plr)
+
+    data.highlight.Adornee = char
+    data.highlight.FillColor = color
+    data.highlight.OutlineColor = color
+    data.highlight.FillTransparency = 0.55
+    data.highlight.OutlineTransparency = 0.1
+
+    data.billboard.Adornee = head
+
+    local myChar = Player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    if myRoot and root then
+        local meters = math.floor((myRoot.Position-root.Position).Magnitude*0.28)
+        data.text.Text = team.." | "..plr.Name.."\n"..meters.." M"
+    end
 end
 
-local function UpdateESP()
-    if not Config.ESP then return end
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and p.Character then
-            AddHighlight(
-                p.Character,
-                Highlights,
-                GetColor(GetRole(p)),
-                0.65
-            )
+local function updateESP()
+    if not espEnabled then
+        for plr in pairs(playerObjects) do
+            clearPlayer(plr)
         end
-    end
-
-    local hue = (os.clock()%4)/4
-
-    local tags = {
-        "DroppedSheriffGun",
-        "Coin",
-        "Candy"
-    }
-
-    for _,tag in ipairs(tags) do
-        for _,item in ipairs(CollectionService:GetTagged(tag)) do
-            if item:IsDescendantOf(workspace) then
-                local color
-
-                if tag == "DroppedSheriffGun" then
-                    color = Color3.fromRGB(255,220,20)
-                elseif tag == "Candy" then
-                    color = Color3.fromRGB(185,60,255)
-                else
-                    color = Color3.fromHSV(hue,1,1)
-                end
-
-                AddHighlight(item,ItemHighlights,color,0.4)
-            end
-        end
-    end
-end
-
-Button("ESP | ผู้เล่นและไอเทม",function(v)
-    Config.ESP = v
-    if not v then ClearESP() end
-end,true)
-
---==================================================
--- GUN FINDER
--- ค้นหาปืนที่ Sheriff ทำตก
---==================================================
-
-local GunLabel = Instance.new("TextLabel")
-GunLabel.Size = UDim2.new(1,-5,0,38)
-GunLabel.BackgroundTransparency = 1
-GunLabel.TextColor3 = Color3.new(1,1,1)
-GunLabel.TextSize = 12
-GunLabel.Text = "Gun: ยังไม่ได้ค้นหา"
-GunLabel.Parent = Holder
-
-local function GetPart(item)
-    if item:IsA("BasePart") then
-        return item
-    end
-
-    return item:FindFirstChildWhichIsA("BasePart",true)
-end
-
-local function FindNearestGun()
-    local character = Player.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-
-    if not root then return nil end
-
-    local nearest
-    local distance = math.huge
-
-    for _,gun in ipairs(
-        CollectionService:GetTagged("DroppedSheriffGun")
-    ) do
-        local part = GetPart(gun)
-
-        if part and part:IsDescendantOf(workspace) then
-            local d = (root.Position-part.Position).Magnitude
-
-            if d < distance then
-                nearest = gun
-                distance = d
-            end
-        end
-    end
-
-    return nearest,distance
-end
-
-local function FindPrompt(item)
-    if item:IsA("ProximityPrompt") then
-        return item
-    end
-
-    return item:FindFirstChildWhichIsA(
-        "ProximityPrompt",true
-    )
-end
-
-local function CollectGun()
-    if Config.GunBusy then return end
-
-    local character = Player.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-
-    if not root then
-        GunLabel.Text = "Gun: ไม่พบตัวละคร"
         return
     end
 
-    local gun,distance = FindNearestGun()
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player and plr.Character then
+            createPlayerESP(plr)
+        end
+    end
 
-    if not gun then
-        GunLabel.Text = "Gun: ไม่พบปืนที่ตก"
+    for plr in pairs(playerObjects) do
+        if not plr.Parent then
+            clearPlayer(plr)
+        end
+    end
+end
+
+espButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espButton.Text = "PLAYER ESP : "..(espEnabled and "ON" or "OFF")
+    espButton.BackgroundColor3 = espEnabled and Color3.fromRGB(65,35,100) or Color3.fromRGB(39,29,53)
+    if not espEnabled then updateESP() end
+end)
+
+--========================================================
+-- VEHICLE ESP
+-- Models must have CollectionService tag:
+-- OGHubVehicle
+-- OwnerUserId attribute = vehicle owner's UserId
+--========================================================
+
+local vehicleObjects = {}
+
+local function clearVehicles()
+    for model,data in pairs(vehicleObjects) do
+        if data.highlight then data.highlight:Destroy() end
+        if data.billboard then data.billboard:Destroy() end
+        vehicleObjects[model] = nil
+    end
+end
+
+local function updateVehicles()
+    if not vehicleEnabled then
+        clearVehicles()
         return
     end
 
-    local part = GetPart(gun)
-
-    if not part then
-        GunLabel.Text = "Gun: ไม่พบตำแหน่งปืน"
-        return
-    end
-
-    Config.GunBusy = true
-    GunLabel.Text = "Gun: กำลังไปยังปืน..."
-
-    local oldPosition = root.CFrame
-
-    local success,err = pcall(function()
-        character:PivotTo(
-            CFrame.new(part.Position + Vector3.new(0,3,0))
-        )
-
-        task.wait(0.5)
-
-        local prompt = FindPrompt(gun)
-
-        if prompt and prompt.Enabled then
-            prompt:InputHoldBegin()
-            task.wait(math.max(prompt.HoldDuration,0.2))
-            prompt:InputHoldEnd()
-            GunLabel.Text = "Gun: ส่งคำสั่งเก็บปืนแล้ว"
-        else
-            GunLabel.Text = "Gun: ไม่พบ ProximityPrompt"
-        end
-
-        task.wait(0.5)
-
-        if Player.Character then
-            Player.Character:PivotTo(oldPosition)
-        end
-    end)
-
-    if not success then
-        GunLabel.Text = "Gun: เกิดข้อผิดพลาด"
-        warn("Gun Finder:",err)
-
-        if Player.Character then
-            Player.Character:PivotTo(oldPosition)
-        end
-    end
-
-    Config.GunBusy = false
-end
-
-Button("🔫 ค้นหาและเก็บปืนที่ตก",CollectGun)
-
---==================================================
--- AIM
--- เล็งเป้าหมาย Murder และใช้อาวุธที่ถืออยู่
---==================================================
-
-local AimButton = Instance.new("TextButton")
-AimButton.Size = UDim2.fromOffset(55,55)
-AimButton.Position = UDim2.new(1,-75,1,-190)
-AimButton.BackgroundColor3 = Color3.fromRGB(30,30,35)
-AimButton.Text = "⊙"
-AimButton.TextSize = 34
-AimButton.TextColor3 = Color3.new(1,1,1)
-AimButton.Visible = false
-AimButton.Parent = Gui
-
-Instance.new("UICorner",AimButton).CornerRadius =
-    UDim.new(1,0)
-
-local AimStroke = Instance.new("UIStroke")
-AimStroke.Color = Color3.fromRGB(255,45,45)
-AimStroke.Thickness = 2
-AimStroke.Parent = AimButton
-
-local function FindMurderTarget()
-    local myCharacter = Player.Character
-    local myRoot = myCharacter
-        and myCharacter:FindFirstChild("HumanoidRootPart")
-
-    if not myRoot then return nil end
-
-    local nearest
-    local nearestDistance = Config.AimRange
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= Player and GetRole(p):find("murder") then
-            local character = p.Character
-            local root = character
-                and character:FindFirstChild("HumanoidRootPart")
-            local humanoid = character
-                and character:FindFirstChildOfClass("Humanoid")
-
-            if root and humanoid and humanoid.Health > 0 then
-                local distance =
-                    (myRoot.Position-root.Position).Magnitude
-
-                if distance < nearestDistance then
-                    nearest = p
-                    nearestDistance = distance
-                end
-            end
-        end
-    end
-
-    return nearest
-end
-
-local function GetEquippedTool()
-    local character = Player.Character
-    if not character then return nil end
-
-    for _,obj in ipairs(character:GetChildren()) do
-        if obj:IsA("Tool") then
-            return obj
-        end
-    end
-
-    return nil
-end
-
-AimButton.Activated:Connect(function()
-    if not Config.Aim then return end
-
-    local target = FindMurderTarget()
-
-    if not target then
-        AimButton.Text = "?"
-        task.delay(1,function()
-            AimButton.Text = "⊙"
-        end)
-        return
-    end
-
-    local character = target.Character
-    local root = character
-        and character:FindFirstChild("HumanoidRootPart")
-
+    local myChar = Player.Character
+    local root = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    Camera.CFrame = CFrame.lookAt(
-        Camera.CFrame.Position,
-        root.Position
-    )
+    for _,model in ipairs(CollectionService:GetTagged("OGHubVehicle")) do
+        if model:IsA("Model") and model.Parent then
+            local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart",true)
+            if part then
+                local data = vehicleObjects[model]
 
-    local tool = GetEquippedTool()
+                if not data then
+                    local h = Instance.new("Highlight")
+                    h.FillColor = Color3.fromRGB(255,45,45)
+                    h.OutlineColor = Color3.fromRGB(255,100,100)
+                    h.FillTransparency = 0.55
+                    h.Parent = model
 
-    if tool then
-        tool:Activate()
-    end
-end)
+                    local bill = Instance.new("BillboardGui")
+                    bill.Size = UDim2.fromOffset(200,45)
+                    bill.StudsOffset = Vector3.new(0,4,0)
+                    bill.AlwaysOnTop = true
+                    bill.Adornee = part
+                    bill.Parent = gui
 
-Button("🎯 AIM BUTTON",function(v)
-    Config.Aim = v
-    AimButton.Visible = v
-end,true)
+                    local txt = label(bill,"",12,Color3.fromRGB(255,100,100))
+                    txt.Size = UDim2.fromScale(1,1)
 
---==================================================
--- FLIGHT
---==================================================
+                    data = {highlight=h,billboard=bill,text=txt}
+                    vehicleObjects[model] = data
+                end
 
-local function StopFlight()
-    Config.Flight = false
+                data.billboard.Adornee = part
 
-    if FlightVelocity then
-        FlightVelocity:Destroy()
-        FlightVelocity = nil
-    end
+                local ownerId = model:GetAttribute("OwnerUserId")
+                local owner = ownerId and Players:GetPlayerByUserId(ownerId)
+                local ownerName = owner and owner.Name or "UNKNOWN"
 
-    if FlightAttachment then
-        FlightAttachment:Destroy()
-        FlightAttachment = nil
-    end
-
-    local character = Player.Character
-    local humanoid = character
-        and character:FindFirstChildOfClass("Humanoid")
-
-    if humanoid then
-        humanoid.PlatformStand = false
-        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-    end
-
-    if FlightButtonUpdate then
-        FlightButtonUpdate(false)
-    end
-end
-
-local function StartFlight()
-    local character = Player.Character
-    local root = character
-        and character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character
-        and character:FindFirstChildOfClass("Humanoid")
-
-    if not root or not humanoid then return end
-
-    Config.Flight = true
-
-    FlightAttachment = Instance.new("Attachment")
-    FlightAttachment.Parent = root
-
-    FlightVelocity = Instance.new("LinearVelocity")
-    FlightVelocity.Attachment0 = FlightAttachment
-    FlightVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
-    FlightVelocity.MaxForce = 100000
-    FlightVelocity.VectorVelocity = Vector3.new(0,3,0)
-    FlightVelocity.Parent = root
-
-    humanoid.PlatformStand = true
-
-    if FlightButtonUpdate then
-        FlightButtonUpdate(true)
-    end
-end
-
-local function ToggleFlight()
-    if Config.Flight then
-        StopFlight()
-    else
-        StartFlight()
-    end
-end
-
-local _,setFlightButton = Button("✈ FLIGHT",ToggleFlight,true)
-FlightButtonUpdate = setFlightButton
-
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(1,-5,0,28)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.TextColor3 = Color3.new(1,1,1)
-SpeedLabel.Text = "Speed: 55"
-SpeedLabel.Parent = Holder
-
-local function ChangeSpeed(amount)
-    Config.Speed = math.clamp(
-        Config.Speed+amount,15,Config.MaxSpeed
-    )
-
-    SpeedLabel.Text = "Speed: "..Config.Speed
-end
-
-Button("➕ เพิ่มความเร็ว",function()
-    ChangeSpeed(10)
-end)
-
-Button("➖ ลดความเร็ว",function()
-    ChangeSpeed(-10)
-end)
-
---==================================================
--- MAIN UPDATE
---==================================================
-
-local espTimer = 0
-
-RunService.RenderStepped:Connect(function(dt)
-    espTimer += dt
-
-    if espTimer >= 0.2 then
-        espTimer = 0
-        UpdateESP()
-    end
-
-    if Config.Flight and FlightVelocity then
-        local character = Player.Character
-        local humanoid = character
-            and character:FindFirstChildOfClass("Humanoid")
-
-        if not humanoid then
-            StopFlight()
-            return
+                local meters = math.floor((root.Position-part.Position).Magnitude*0.28)
+                data.text.Text = "VEHICLE: "..ownerName.."\n"..meters.." M"
+            end
         end
-
-        FlightVelocity.VectorVelocity =
-            humanoid.MoveDirection*Config.Speed
-            + Vector3.new(0,3,0)
     end
+
+    for model,data in pairs(vehicleObjects) do
+        if not model.Parent or not CollectionService:HasTag(model,"OGHubVehicle") then
+            data.highlight:Destroy()
+            data.billboard:Destroy()
+            vehicleObjects[model] = nil
+        end
+    end
+end
+
+vehicleButton.MouseButton1Click:Connect(function()
+    vehicleEnabled = not vehicleEnabled
+    vehicleButton.Text = "VEHICLE ESP : "..(vehicleEnabled and "ON" or "OFF")
+    if not vehicleEnabled then clearVehicles() end
 end)
 
---==================================================
--- INPUT PC / CONSOLE
---==================================================
+--========================================================
+-- POLICE PROXIMITY ALERT
+-- Always active - does not require ESP
+--========================================================
+
+local alertBillboard
+local alertText
+local blink = false
+
+local function setupAlert(character)
+    if alertBillboard then
+        alertBillboard:Destroy()
+    end
+
+    local head = character:WaitForChild("Head",5)
+    if not head then return end
+
+    alertBillboard = Instance.new("BillboardGui")
+    alertBillboard.Name = "OGHubPoliceAlert"
+    alertBillboard.Size = UDim2.fromOffset(65,65)
+    alertBillboard.StudsOffset = Vector3.new(0,3.5,0)
+    alertBillboard.AlwaysOnTop = true
+    alertBillboard.Adornee = head
+    alertBillboard.Parent = gui
+
+    alertText = label(alertBillboard,"!",35,WHITE)
+    alertText.Size = UDim2.fromScale(1,1)
+    alertText.TextStrokeTransparency = 0.2
+end
+
+if Player.Character then
+    task.spawn(setupAlert,Player.Character)
+end
+
+Player.CharacterAdded:Connect(function(char)
+    task.spawn(setupAlert,char)
+end)
+
+local function updatePoliceAlert()
+    if not alertText then return end
+
+    local char = Player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local nearest = math.huge
+
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player then
+            local team = getTeamInfo(plr)
+
+            if team == "POLICE" then
+                local other = plr.Character
+                local otherRoot = other and other:FindFirstChild("HumanoidRootPart")
+
+                if otherRoot then
+                    local distance = (root.Position-otherRoot.Position).Magnitude*0.28
+                    nearest = math.min(nearest,distance)
+                end
+            end
+        end
+    end
+
+    if nearest <= 5 then
+        blink = not blink
+        alertText.TextColor3 = blink and Color3.fromRGB(255,0,0) or Color3.new(0,0,0)
+    elseif nearest <= 50 then
+        alertText.TextColor3 = Color3.fromRGB(255,30,30)
+    elseif nearest <= 100 then
+        alertText.TextColor3 = Color3.fromRGB(255,220,0)
+    elseif nearest <= 1000 then
+        alertText.TextColor3 = WHITE
+    else
+        alertText.TextColor3 = WHITE
+    end
+
+    alertText.Visible = nearest <= 1000
+end
+
+--========================================================
+-- WEAPON SETTINGS
+-- UI ONLY - server weapon logic required
+--========================================================
+
+section("02  |  WEAPON SETTINGS")
+
+local weaponButton = makeButton("WEAPON SETTINGS : OPEN")
+
+local weaponPanel = Instance.new("Frame")
+weaponPanel.Size = UDim2.new(1,-5,0,0)
+weaponPanel.BackgroundColor3 = Color3.fromRGB(29,21,41)
+weaponPanel.ClipsDescendants = true
+weaponPanel.Parent = content
+corner(weaponPanel,9)
+
+local weaponLayout = Instance.new("UIListLayout")
+weaponLayout.Padding = UDim.new(0,4)
+weaponLayout.Parent = weaponPanel
+
+local weaponNames = {
+    "G36",
+    "GLOCK 17",
+    "SNIPER",
+    "M58B SHOTGUN",
+    "MP5",
+    "M4 CARBINE"
+}
+
+local selectedWeapon = "G36"
+
+local weaponLabel = label(weaponPanel,"SELECTED: G36",13,PURPLE)
+weaponLabel.Size = UDim2.new(1,-10,0,30)
+
+for _,name in ipairs(weaponNames) do
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-10,0,32)
+    b.Position = UDim2.new(0,5,0,0)
+    b.BackgroundColor3 = Color3.fromRGB(53,35,72)
+    b.Text = name
+    b.TextColor3 = WHITE
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 12
+    b.Parent = weaponPanel
+    corner(b,6)
+
+    b.MouseButton1Click:Connect(function()
+        selectedWeapon = name
+        weaponLabel.Text = "SELECTED: "..name
+    end)
+end
+
+local weaponOpen = false
+
+weaponButton.MouseButton1Click:Connect(function()
+    weaponOpen = not weaponOpen
+    weaponButton.Text = "WEAPON SETTINGS : "..(weaponOpen and "CLOSE" or "OPEN")
+    weaponPanel.Size = UDim2.new(1,-5,0,weaponOpen and 245 or 0)
+end)
+
+--========================================================
+-- GUI CONTROL
+--========================================================
+
+local function toggleGUI()
+    main.Visible = not main.Visible
+end
+
+open.MouseButton1Click:Connect(toggleGUI)
+
+close.MouseButton1Click:Connect(function()
+    main.Visible = false
+end)
 
 UIS.InputBegan:Connect(function(input,processed)
     if processed then return end
 
-    local key = input.KeyCode
-
-    if key == Enum.KeyCode.T
-        or key == Enum.KeyCode.ButtonR1 then
-
-        TogglePanel()
-
-    elseif key == Enum.KeyCode.F2
-        or key == Enum.KeyCode.ButtonL2 then
-
-        ToggleFlight()
-
-    elseif key == Enum.KeyCode.F1
-        or key == Enum.KeyCode.ButtonR2 then
-
-        ChangeSpeed(10)
-
-    elseif key == Enum.KeyCode.F3
-        or key == Enum.KeyCode.ButtonL1 then
-
-        ChangeSpeed(-10)
+    if input.KeyCode == Enum.KeyCode.F1 then
+        toggleGUI()
     end
 end)
 
---==================================================
--- RESPAWN CLEANUP
---==================================================
+--========================================================
+-- UPDATE LOOP
+--========================================================
 
-Player.CharacterAdded:Connect(function()
-    StopFlight()
-    ClearESP()
-end)
-
-Players.PlayerRemoving:Connect(function(p)
-    if Highlights[p] then
-        Highlights[p]:Destroy()
-        Highlights[p] = nil
+task.spawn(function()
+    while gui.Parent do
+        updateESP()
+        updateVehicles()
+        updatePoliceAlert()
+        task.wait(0.25)
     end
 end)
 
-print("ฆาตกร | ต้นฉบับ v1.3 โหลดสำเร็จ")
+print("OGHub Emergency Hamburg v1.0 Loaded")
